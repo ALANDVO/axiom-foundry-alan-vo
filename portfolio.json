@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "name": "axiom-foundry-alan-vo",
+  "owner": "ALANDVO",
+  "email": "alanvo@gmail.com",
+  "domain": "AI/ML developer tools",
+  "summary": "Work in progress: axiom-foundry-alan-vo",
+  "workflows": [
+    "Browse, search, filter, and paginate AI coding agent skills",
+    "Create and edit skills with platform-specific configurations",
+    "Export skill configurations for multi-platform agent setups"
+  ],
+  "auth": "oidc-keycloak-saml-broker",
+  "llm_providers": [
+    "openai-compatible",
+    "anthropic",
+    "gemini",
+    "ollama"
+  ],
+  "status": "work-in-progress"
+}

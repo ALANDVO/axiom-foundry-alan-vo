@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { api, Skill, SkillListResponse } from "../api/client";
+import { api, Skill, SkillListResponse, PlatformConfig } from "../api/client";
 
 interface SkillListProps {
   onSelect?: (skill: Skill) => void;
@@ -19,6 +19,14 @@ export function SkillList({ onSelect }: SkillListProps) {
   const [categories, setCategories] = useState<string[]>([]);
   const [platforms, setPlatforms] = useState<string[]>([]);
   const [capabilities, setCapabilities] = useState<string[]>([]);
+
+  // Platform config modal state
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [configModalSkill, setConfigModalSkill] = useState<Skill | null>(null);
+  const [configModalPlatform, setConfigModalPlatform] = useState("");
+  const [platformConfig, setPlatformConfig] = useState<PlatformConfig | null>(null);
+  const [configLoading, setConfigLoading] = useState(false);
+  const [configError, setConfigError] = useState<string | null>(null);
 
   useEffect(() => {
     loadMeta();
@@ -62,6 +70,32 @@ export function SkillList({ onSelect }: SkillListProps) {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleGenerateConfig(skill: Skill, targetPlatform: string) {
+    setConfigModalSkill(skill);
+    setConfigModalPlatform(targetPlatform);
+    setPlatformConfig(null);
+    setConfigError(null);
+    setConfigLoading(true);
+    setShowConfigModal(true);
+
+    try {
+      const config = await api.getSkillPlatformConfig(skill.id, targetPlatform);
+      setPlatformConfig(config);
+    } catch (e) {
+      setConfigError(e instanceof Error ? e.message : "Failed to generate config");
+    } finally {
+      setConfigLoading(false);
+    }
+  }
+
+  function closeConfigModal() {
+    setShowConfigModal(false);
+    setConfigModalSkill(null);
+    setConfigModalPlatform("");
+    setPlatformConfig(null);
+    setConfigError(null);
   }
 
   function handleSearchChange(e: React.FormEvent<HTMLFormElement>) {
@@ -133,6 +167,18 @@ export function SkillList({ onSelect }: SkillListProps) {
                   {skill.tags.map((tag) => <span key={tag} className="skill-tag">{tag}</span>)}
                 </div>
               )}
+              <div className="skill-actions">
+                <button
+                  className="generate-config-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleGenerateConfig(skill, skill.platform);
+                  }}
+                  disabled={configLoading}
+                >
+                  Generate Config
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -158,6 +204,57 @@ export function SkillList({ onSelect }: SkillListProps) {
             Next
           </button>
         </nav>
+      )}
+
+      {showConfigModal && configModalSkill && (
+        <div className="config-modal-overlay" onClick={closeConfigModal}>
+          <div className="config-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="config-modal-header">
+              <h3>Platform Configuration</h3>
+              <p className="config-modal-skill">{configModalSkill.name} → {configModalPlatform}</p>
+              <button className="config-modal-close" onClick={closeConfigModal} aria-label="Close">
+                ×
+              </button>
+            </div>
+            {configLoading && <div className="config-modal-loading">Generating configuration...</div>}
+            {configError && (
+              <div className="config-modal-error">
+                <p>Error: {configError}</p>
+                <button onClick={() => handleGenerateConfig(configModalSkill!, configModalPlatform)}>Retry</button>
+              </div>
+            )}
+            {platformConfig && !configLoading && !configError && (
+              <div className="config-modal-content">
+                <pre className="config-json">{JSON.stringify(platformConfig, null, 2)}</pre>
+                <div className="config-modal-actions">
+                  <button
+                    className="copy-config-btn"
+                    onClick={() => {
+                      navigator.clipboard.writeText(JSON.stringify(platformConfig, null, 2));
+                      alert("Configuration copied to clipboard!");
+                    }}
+                  >
+                    Copy to Clipboard
+                  </button>
+                  <button
+                    className="download-config-btn"
+                    onClick={() => {
+                      const blob = new Blob([JSON.stringify(platformConfig, null, 2)], { type: "application/json" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `${configModalSkill.name}-${configModalPlatform}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    Download JSON
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

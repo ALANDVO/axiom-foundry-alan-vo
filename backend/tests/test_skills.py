@@ -334,3 +334,179 @@ def test_build_skill_search_query_empty_search(db_session):
     query = build_skill_search_query(query, search="")
     results = query.all()
     assert len(results) == 3
+
+# Platform config generation endpoint tests
+@pytest.mark.asyncio
+async def test_get_supported_platform_configs():
+    async with AsyncClient(transport=_transport, base_url="http://test") as client:
+        response = await client.get("/api/skills/meta/platform-config/platforms")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        assert "claude" in data
+        assert "cursor" in data
+        assert "opencode" in data
+        assert "codex" in data
+        assert "gemini" in data
+        assert "zed" in data
+
+
+@pytest.mark.asyncio
+async def test_get_skill_platform_config():
+    async with AsyncClient(transport=_transport, base_url="http://test") as client:
+        # First create a skill with config
+        skill_data = {
+            "name": "platform-test-skill",
+            "description": "Test skill for platform config",
+            "category": "testing",
+            "platform": "claude",
+            "config": {
+                "command": "python",
+                "args": ["-m", "pytest"],
+                "env": {"TEST": "true"},
+                "cwd": "/project",
+                "timeout": 300,
+            },
+        }
+        create_response = await client.post("/api/skills", json=skill_data)
+        assert create_response.status_code == 201
+        skill_id = create_response.json()["id"]
+
+        # Get platform config for claude
+        response = await client.get(f"/api/skills/{skill_id}/platform-config/claude")
+        assert response.status_code == 200
+        config = response.json()
+        assert config["command"] == "python"
+        assert config["args"] == ["-m", "pytest"]
+        assert config["env"] == {"TEST": "true"}
+        assert config["cwd"] == "/project"
+        assert config["timeout"] == 300
+
+
+@pytest.mark.asyncio
+async def test_get_skill_platform_config_by_name():
+    async with AsyncClient(transport=_transport, base_url="http://test") as client:
+        skill_data = {
+            "name": "platform-test-by-name",
+            "description": "Test skill for platform config by name",
+            "category": "testing",
+            "platform": "cursor",
+            "config": {
+                "command": "node",
+                "args": ["script.js"],
+                "hotkey": "cmd+shift+t",
+            },
+        }
+        create_response = await client.post("/api/skills", json=skill_data)
+        assert create_response.status_code == 201
+
+        response = await client.get("/api/skills/name/platform-test-by-name/platform-config/cursor")
+        assert response.status_code == 200
+        config = response.json()
+        assert config["command"] == "node"
+        assert config["hotkey"] == "cmd+shift+t"
+
+
+@pytest.mark.asyncio
+async def test_get_skill_platform_config_not_found():
+    async with AsyncClient(transport=_transport, base_url="http://test") as client:
+        response = await client.get("/api/skills/999/platform-config/claude")
+        assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_skill_platform_config_invalid_platform():
+    async with AsyncClient(transport=_transport, base_url="http://test") as client:
+        skill_data = {
+            "name": "invalid-platform-test",
+            "description": "Test",
+            "category": "testing",
+            "platform": "claude",
+            "config": {},
+        }
+        create_response = await client.post("/api/skills", json=skill_data)
+        assert create_response.status_code == 201
+        skill_id = create_response.json()["id"]
+
+        response = await client.get(f"/api/skills/{skill_id}/platform-config/unknown-platform")
+        assert response.status_code == 400
+        assert "Unsupported platform" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_get_skill_platform_config_codex():
+    async with AsyncClient(transport=_transport, base_url="http://test") as client:
+        skill_data = {
+            "name": "codex-config-test",
+            "description": "Test Codex config",
+            "category": "testing",
+            "platform": "codex",
+            "config": {
+                "prompt": "Review this code",
+                "model": "gpt-4",
+                "temperature": 0.5,
+                "max_tokens": 2000,
+            },
+        }
+        create_response = await client.post("/api/skills", json=skill_data)
+        assert create_response.status_code == 201
+        skill_id = create_response.json()["id"]
+
+        response = await client.get(f"/api/skills/{skill_id}/platform-config/codex")
+        assert response.status_code == 200
+        config = response.json()
+        assert config["prompt"] == "Review this code"
+        assert config["model"] == "gpt-4"
+        assert config["temperature"] == 0.5
+        assert config["max_tokens"] == 2000
+
+
+@pytest.mark.asyncio
+async def test_get_skill_platform_config_gemini():
+    async with AsyncClient(transport=_transport, base_url="http://test") as client:
+        skill_data = {
+            "name": "gemini-config-test",
+            "description": "Test Gemini config",
+            "category": "testing",
+            "platform": "gemini",
+            "config": {
+                "prompt": "Explain this",
+                "model": "gemini-1.5-flash",
+                "temperature": 0.3,
+            },
+        }
+        create_response = await client.post("/api/skills", json=skill_data)
+        assert create_response.status_code == 201
+        skill_id = create_response.json()["id"]
+
+        response = await client.get(f"/api/skills/{skill_id}/platform-config/gemini")
+        assert response.status_code == 200
+        config = response.json()
+        assert config["prompt"] == "Explain this"
+        assert config["model"] == "gemini-1.5-flash"
+        assert config["temperature"] == 0.3
+        assert config["max_output_tokens"] == 4000  # default
+
+
+@pytest.mark.asyncio
+async def test_get_skill_platform_config_case_insensitive():
+    async with AsyncClient(transport=_transport, base_url="http://test") as client:
+        skill_data = {
+            "name": "case-test",
+            "description": "Test case insensitivity",
+            "category": "testing",
+            "platform": "claude",
+            "config": {"command": "test"},
+        }
+        create_response = await client.post("/api/skills", json=skill_data)
+        assert create_response.status_code == 201
+        skill_id = create_response.json()["id"]
+
+        response = await client.get(f"/api/skills/{skill_id}/platform-config/CLAUDE")
+        assert response.status_code == 200
+        assert response.json()["command"] == "test"
+
+        response = await client.get(f"/api/skills/{skill_id}/platform-config/Claude-Code")
+        assert response.status_code == 200
+        assert response.json()["command"] == "test"
+

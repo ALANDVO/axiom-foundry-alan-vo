@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from pydantic import BaseModel, Field, ConfigDict
@@ -6,6 +7,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from app.core.database import get_db
 from app.models.skill import Skill
 from app.services.skill_search import build_skill_search_query
+from app.services.platform_config import generate_platform_config, get_supported_platforms
 
 router = APIRouter(prefix="/api/skills", tags=["skills"])
 
@@ -165,3 +167,43 @@ def get_platforms(db: Session = Depends(get_db)):
 @router.get("/meta/capabilities", response_model=List[str])
 def get_capabilities(db: Session = Depends(get_db)):
     return [row[0] for row in db.query(Skill.capability).distinct().all() if row[0]]
+
+
+@router.get("/meta/platform-config/platforms", response_model=List[str])
+def get_supported_platform_configs():
+    """List all supported platform configuration formats."""
+    return get_supported_platforms()
+
+
+@router.get("/{skill_id}/platform-config/{platform}")
+def get_skill_platform_config(skill_id: int, platform: str, db: Session = Depends(get_db)):
+    """Generate platform-specific configuration for a skill.
+
+    Returns the configuration formatted for the target platform (Claude Code, Cursor, OpenCode, etc.).
+    """
+    skill = db.query(Skill).filter(Skill.id == skill_id).first()
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+
+    try:
+        platform_config = generate_platform_config(platform, skill.config or {})
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return JSONResponse(content=platform_config)
+
+
+@router.get("/name/{name}/platform-config/{platform}")
+def get_skill_platform_config_by_name(name: str, platform: str, db: Session = Depends(get_db)):
+    """Generate platform-specific configuration for a skill by name."""
+    skill = db.query(Skill).filter(Skill.name == name).first()
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+
+    try:
+        platform_config = generate_platform_config(platform, skill.config or {})
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return JSONResponse(content=platform_config)
+

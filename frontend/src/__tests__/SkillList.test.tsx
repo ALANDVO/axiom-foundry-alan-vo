@@ -1,6 +1,22 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { SkillList } from "../components/SkillList";
+
+// Mock the API module
+vi.mock("../api/client", () => {
+  const mockApi = {
+    getSkills: vi.fn(),
+    getCategories: vi.fn(),
+    getPlatforms: vi.fn(),
+    getCapabilities: vi.fn(),
+    getSupportedPlatformConfigs: vi.fn(),
+    getSkillPlatformConfig: vi.fn(),
+    getSkillPlatformConfigByName: vi.fn(),
+  };
+  return { api: mockApi };
+});
+
+// Import the mocked api
 import { api } from "../api/client";
 
 const mockSkills = [
@@ -34,15 +50,6 @@ const mockSkills = [
   },
 ];
 
-// Cast the real api to Mock-typed functions so TypeScript allows
-// mockReturnValue / mockResolvedValue / toHaveBeenCalledWith.
-const mockApi = api as unknown as {
-  getSkills: Mock;
-  getCategories: Mock;
-  getPlatforms: Mock;
-  getCapabilities: Mock;
-};
-
 describe("SkillList", () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -50,26 +57,28 @@ describe("SkillList", () => {
 
   it("renders loading state initially", () => {
     const { promise } = Promise.withResolvers<void>();
-    mockApi.getSkills.mockReturnValue(promise);
-    mockApi.getCategories.mockReturnValue(promise);
-    mockApi.getPlatforms.mockReturnValue(promise);
-    mockApi.getCapabilities.mockReturnValue(promise);
+    api.getSkills.mockReturnValue(promise);
+    api.getCategories.mockReturnValue(promise);
+    api.getPlatforms.mockReturnValue(promise);
+    api.getCapabilities.mockReturnValue(promise);
+    api.getSupportedPlatformConfigs.mockReturnValue(promise);
 
     render(<SkillList />);
     expect(screen.getByText("Loading skills...")).toBeInTheDocument();
   });
 
   it("renders skill list after loading", async () => {
-    mockApi.getSkills.mockResolvedValue({
+    api.getSkills.mockResolvedValue({
       items: mockSkills,
       total: 2,
       page: 1,
       page_size: 20,
       total_pages: 1,
     });
-    mockApi.getCategories.mockResolvedValue(["workflow", "security"]);
-    mockApi.getPlatforms.mockResolvedValue(["claude"]);
-    mockApi.getCapabilities.mockResolvedValue(["tdd", "security"]);
+    api.getCategories.mockResolvedValue(["workflow", "security"]);
+    api.getPlatforms.mockResolvedValue(["claude"]);
+    api.getCapabilities.mockResolvedValue(["tdd", "security"]);
+    api.getSupportedPlatformConfigs.mockResolvedValue(["claude", "cursor"]);
 
     render(<SkillList />);
 
@@ -80,10 +89,11 @@ describe("SkillList", () => {
   });
 
   it("shows empty state when no skills", async () => {
-    mockApi.getSkills.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, total_pages: 1 });
-    mockApi.getCategories.mockResolvedValue([]);
-    mockApi.getPlatforms.mockResolvedValue([]);
-    mockApi.getCapabilities.mockResolvedValue([]);
+    api.getSkills.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, total_pages: 1 });
+    api.getCategories.mockResolvedValue([]);
+    api.getPlatforms.mockResolvedValue([]);
+    api.getCapabilities.mockResolvedValue([]);
+    api.getSupportedPlatformConfigs.mockResolvedValue([]);
 
     render(<SkillList />);
 
@@ -93,16 +103,17 @@ describe("SkillList", () => {
   });
 
   it("filters by search term", async () => {
-    mockApi.getSkills.mockResolvedValue({
+    api.getSkills.mockResolvedValue({
       items: [mockSkills[0]],
       total: 1,
       page: 1,
       page_size: 20,
       total_pages: 1,
     });
-    mockApi.getCategories.mockResolvedValue(["workflow"]);
-    mockApi.getPlatforms.mockResolvedValue(["claude"]);
-    mockApi.getCapabilities.mockResolvedValue(["tdd"]);
+    api.getCategories.mockResolvedValue(["workflow"]);
+    api.getPlatforms.mockResolvedValue(["claude"]);
+    api.getCapabilities.mockResolvedValue(["tdd"]);
+    api.getSupportedPlatformConfigs.mockResolvedValue([]);
 
     render(<SkillList />);
 
@@ -115,23 +126,24 @@ describe("SkillList", () => {
     fireEvent.submit(searchInput.closest("form")!);
 
     await waitFor(() => {
-      expect(mockApi.getSkills).toHaveBeenCalledWith(
+      expect(api.getSkills).toHaveBeenCalledWith(
         expect.objectContaining({ search: "security" })
       );
     });
   });
 
   it("filters by category", async () => {
-    mockApi.getSkills.mockResolvedValue({
+    api.getSkills.mockResolvedValue({
       items: [mockSkills[1]],
       total: 1,
       page: 1,
       page_size: 20,
       total_pages: 1,
     });
-    mockApi.getCategories.mockResolvedValue(["workflow", "security"]);
-    mockApi.getPlatforms.mockResolvedValue(["claude"]);
-    mockApi.getCapabilities.mockResolvedValue(["tdd", "security"]);
+    api.getCategories.mockResolvedValue(["workflow", "security"]);
+    api.getPlatforms.mockResolvedValue(["claude"]);
+    api.getCapabilities.mockResolvedValue(["tdd", "security"]);
+    api.getSupportedPlatformConfigs.mockResolvedValue([]);
 
     render(<SkillList />);
 
@@ -143,7 +155,7 @@ describe("SkillList", () => {
     fireEvent.change(categorySelect, { target: { value: "security" } });
 
     await waitFor(() => {
-      expect(mockApi.getSkills).toHaveBeenCalledWith(
+      expect(api.getSkills).toHaveBeenCalledWith(
         expect.objectContaining({ category: "security" })
       );
     });
@@ -151,16 +163,17 @@ describe("SkillList", () => {
 
   it("calls onSelect when skill clicked", async () => {
     const onSelect = vi.fn();
-    mockApi.getSkills.mockResolvedValue({
+    api.getSkills.mockResolvedValue({
       items: mockSkills,
       total: 2,
       page: 1,
       page_size: 20,
       total_pages: 1,
     });
-    mockApi.getCategories.mockResolvedValue(["workflow", "security"]);
-    mockApi.getPlatforms.mockResolvedValue(["claude"]);
-    mockApi.getCapabilities.mockResolvedValue(["tdd", "security"]);
+    api.getCategories.mockResolvedValue(["workflow", "security"]);
+    api.getPlatforms.mockResolvedValue(["claude"]);
+    api.getCapabilities.mockResolvedValue(["tdd", "security"]);
+    api.getSupportedPlatformConfigs.mockResolvedValue([]);
 
     render(<SkillList onSelect={onSelect} />);
 
@@ -174,16 +187,17 @@ describe("SkillList", () => {
   });
 
   it("shows pagination when multiple pages", async () => {
-    mockApi.getSkills.mockResolvedValue({
+    api.getSkills.mockResolvedValue({
       items: mockSkills,
       total: 50,
       page: 1,
       page_size: 20,
       total_pages: 3,
     });
-    mockApi.getCategories.mockResolvedValue(["workflow", "security"]);
-    mockApi.getPlatforms.mockResolvedValue(["claude"]);
-    mockApi.getCapabilities.mockResolvedValue(["tdd", "security"]);
+    api.getCategories.mockResolvedValue(["workflow", "security"]);
+    api.getPlatforms.mockResolvedValue(["claude"]);
+    api.getCapabilities.mockResolvedValue(["tdd", "security"]);
+    api.getSupportedPlatformConfigs.mockResolvedValue([]);
 
     render(<SkillList />);
 
@@ -194,10 +208,11 @@ describe("SkillList", () => {
   });
 
   it("displays error state on API failure", async () => {
-    mockApi.getSkills.mockRejectedValue(new Error("Network error"));
-    mockApi.getCategories.mockResolvedValue([]);
-    mockApi.getPlatforms.mockResolvedValue([]);
-    mockApi.getCapabilities.mockResolvedValue([]);
+    api.getSkills.mockRejectedValue(new Error("Network error"));
+    api.getCategories.mockResolvedValue([]);
+    api.getPlatforms.mockResolvedValue([]);
+    api.getCapabilities.mockResolvedValue([]);
+    api.getSupportedPlatformConfigs.mockResolvedValue([]);
 
     render(<SkillList />);
 

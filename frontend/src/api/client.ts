@@ -47,6 +47,12 @@ export interface SkillUpdate {
   author?: string;
 }
 
+export interface PlatformConfig {
+  name: string;
+  description: string;
+  [key: string]: unknown;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: { "Content-Type": "application/json", ...options.headers },
@@ -93,4 +99,13 @@ export const api = {
   getCategories: (): Promise<string[]> => request("/skills/meta/categories"),
   getPlatforms: (): Promise<string[]> => request("/skills/meta/platforms"),
   getCapabilities: (): Promise<string[]> => request("/skills/meta/capabilities"),
+
+  getSupportedPlatformConfigs: (): Promise<string[]> =>
+    request("/skills/meta/platform-config/platforms"),
+
+  getSkillPlatformConfig: (skillId: number, platform: string): Promise<PlatformConfig> =>
+    request(`/skills/${skillId}/platform-config/${encodeURIComponent(platform)}`),
+
+  getSkillPlatformConfigByName: (name: string, platform: string): Promise<PlatformConfig> =>
+    request(`/skills/name/${encodeURIComponent(name)}/platform-config/${encodeURIComponent(platform)}`),
 };

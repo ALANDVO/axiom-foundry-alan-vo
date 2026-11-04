@@ -36,3 +36,15 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+.turbo/
+**/data/media/
+venv/
+dist/
+__pycache__/
+*.pyc
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm

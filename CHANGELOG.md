@@ -1,8 +1,25 @@
 # Changelog
 
+## 1.2.0 — work-in-progress checkpoint
+
+Partial code published for continued development. Known issues: STATUS.md.
+
 ## 1.1.0 — work-in-progress checkpoint
 
 Partial code published for continued development. Known issues: STATUS.md.
+
+### Added
+- Platform config modal enhancement: platform selector dropdown to generate configs for any supported platform
+- "Regenerate" button in config modal to re-generate configuration for a different target platform
+- Frontend fetches supported platform configs via `GET /api/skills/meta/platform-config/platforms`
+
+### Changed
+- Updated feature-plan.json: marked platform-adapters as done, added core-skeleton and skill-registry as completed
+- Updated PLAN.md with completed features and roadmap
+- Updated STATUS.md with round summary
+
+### Fixed
+- None
 
 All notable changes to this project will be documented in this file.
 

@@ -19,6 +19,7 @@ export function SkillList({ onSelect }: SkillListProps) {
   const [categories, setCategories] = useState<string[]>([]);
   const [platforms, setPlatforms] = useState<string[]>([]);
   const [capabilities, setCapabilities] = useState<string[]>([]);
+  const [availablePlatforms, setAvailablePlatforms] = useState<string[]>([]);
 
   // Platform config modal state
   const [showConfigModal, setShowConfigModal] = useState(false);
@@ -27,6 +28,7 @@ export function SkillList({ onSelect }: SkillListProps) {
   const [platformConfig, setPlatformConfig] = useState<PlatformConfig | null>(null);
   const [configLoading, setConfigLoading] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
+  const [configTargetPlatform, setConfigTargetPlatform] = useState("");
 
   useEffect(() => {
     loadMeta();
@@ -36,16 +38,24 @@ export function SkillList({ onSelect }: SkillListProps) {
     loadSkills();
   }, [page, pageSize, search, category, platform, capability]);
 
+  useEffect(() => {
+    if (configModalSkill) {
+      setConfigTargetPlatform(configModalSkill.platform);
+    }
+  }, [configModalSkill]);
+
   async function loadMeta() {
     try {
-      const [cats, plats, caps] = await Promise.all([
+      const [cats, plats, caps, supportedPlatforms] = await Promise.all([
         api.getCategories(),
         api.getPlatforms(),
         api.getCapabilities(),
+        api.getSupportedPlatformConfigs(),
       ]);
       setCategories(cats);
       setPlatforms(plats);
       setCapabilities(caps);
+      setAvailablePlatforms(supportedPlatforms);
     } catch (e) {
       console.error("Failed to load metadata", e);
     }
@@ -72,16 +82,16 @@ export function SkillList({ onSelect }: SkillListProps) {
     }
   }
 
-  async function handleGenerateConfig(skill: Skill, targetPlatform: string) {
+  async function handleGenerateConfig(skill: Skill) {
     setConfigModalSkill(skill);
-    setConfigModalPlatform(targetPlatform);
+    setConfigModalPlatform(configTargetPlatform);
     setPlatformConfig(null);
     setConfigError(null);
     setConfigLoading(true);
     setShowConfigModal(true);
 
     try {
-      const config = await api.getSkillPlatformConfig(skill.id, targetPlatform);
+      const config = await api.getSkillPlatformConfig(skill.id, configTargetPlatform);
       setPlatformConfig(config);
     } catch (e) {
       setConfigError(e instanceof Error ? e.message : "Failed to generate config");
@@ -172,7 +182,8 @@ export function SkillList({ onSelect }: SkillListProps) {
                   className="generate-config-btn"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleGenerateConfig(skill, skill.platform);
+                    setConfigTargetPlatform(skill.platform);
+                    handleGenerateConfig(skill);
                   }}
                   disabled={configLoading}
                 >
@@ -211,7 +222,21 @@ export function SkillList({ onSelect }: SkillListProps) {
           <div className="config-modal" onClick={(e) => e.stopPropagation()}>
             <div className="config-modal-header">
               <h3>Platform Configuration</h3>
-              <p className="config-modal-skill">{configModalSkill.name} → {configModalPlatform}</p>
+              <p className="config-modal-skill">{configModalSkill.name}</p>
+              <div className="config-modal-platform-selector">
+                <label htmlFor="config-target-platform" className="visually-hidden">Target Platform</label>
+                <select
+                  id="config-target-platform"
+                  value={configTargetPlatform}
+                  onChange={(e) => setConfigTargetPlatform(e.target.value)}
+                  disabled={configLoading}
+                  aria-label="Target Platform"
+                >
+                  {availablePlatforms.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
               <button className="config-modal-close" onClick={closeConfigModal} aria-label="Close">
                 ×
               </button>
@@ -220,13 +245,22 @@ export function SkillList({ onSelect }: SkillListProps) {
             {configError && (
               <div className="config-modal-error">
                 <p>Error: {configError}</p>
-                <button onClick={() => handleGenerateConfig(configModalSkill!, configModalPlatform)}>Retry</button>
+                <button onClick={() => handleGenerateConfig(configModalSkill!)}>Retry</button>
               </div>
             )}
             {platformConfig && !configLoading && !configError && (
               <div className="config-modal-content">
                 <pre className="config-json">{JSON.stringify(platformConfig, null, 2)}</pre>
                 <div className="config-modal-actions">
+                  {configTargetPlatform !== configModalPlatform && (
+                    <button
+                      className="regenerate-config-btn"
+                      onClick={() => handleGenerateConfig(configModalSkill!)}
+                      disabled={configLoading}
+                    >
+                      Regenerate for {configTargetPlatform}
+                    </button>
+                  )}
                   <button
                     className="copy-config-btn"
                     onClick={() => {

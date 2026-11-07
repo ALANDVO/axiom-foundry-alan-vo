@@ -1,9 +1,18 @@
 # Changelog
 
+## 1.3.0 — work-in-progress checkpoint
+
+Partial code published for continued development. Known issues: STATUS.md.
+
 ## 1.2.0 — work-in-progress checkpoint
 
 Partial code published for continued development. Known issues: STATUS.md.
 
+### Added
+- Frontend sorting UI for skill list: sort by column (name, category, platform, capability, version, created_at, updated_at) with ascending/descending toggle
+
+### Changed
+- Updated PLAN.md with sorting feature implementation details
 ## 1.1.0 — work-in-progress checkpoint
 
 Partial code published for continued development. Known issues: STATUS.md.

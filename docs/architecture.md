@@ -75,4 +75,4 @@ For production, replace the self-signed TLS termination with a managed certifica
 
 ---
 
-Alan Vo · [alanvo.net](https://alanvo.net)
+Alan Vo · [alanvo.net](https://alanvo.net) · [X: @alanvoasi](https://x.com/alanvoasi)

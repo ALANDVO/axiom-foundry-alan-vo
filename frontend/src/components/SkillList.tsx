@@ -16,6 +16,8 @@ export function SkillList({ onSelect }: SkillListProps) {
   const [category, setCategory] = useState("");
   const [platform, setPlatform] = useState("");
   const [capability, setCapability] = useState("");
+  const [sort, setSort] = useState("name");
+  const [order, setOrder] = useState<"asc" | "desc">("asc");
   const [categories, setCategories] = useState<string[]>([]);
   const [platforms, setPlatforms] = useState<string[]>([]);
   const [capabilities, setCapabilities] = useState<string[]>([]);
@@ -36,7 +38,7 @@ export function SkillList({ onSelect }: SkillListProps) {
 
   useEffect(() => {
     loadSkills();
-  }, [page, pageSize, search, category, platform, capability]);
+  }, [page, pageSize, search, category, platform, capability, sort, order]);
 
   useEffect(() => {
     if (configModalSkill) {
@@ -72,6 +74,8 @@ export function SkillList({ onSelect }: SkillListProps) {
         category: category || undefined,
         platform: platform || undefined,
         capability: capability || undefined,
+        sort,
+        order,
       });
       setSkills(data.items);
       setTotal(data.total);
@@ -117,6 +121,16 @@ export function SkillList({ onSelect }: SkillListProps) {
     setPage(newPage);
   }
 
+  function handleSortChange(newSort: string) {
+    if (newSort === sort) {
+      setOrder(order === "asc" ? "desc" : "asc");
+    } else {
+      setSort(newSort);
+      setOrder("asc");
+    }
+    setPage(1);
+  }
+
   if (loading && skills.length === 0) {
     return <div className="skill-list-loading">Loading skills...</div>;
   }
@@ -154,6 +168,31 @@ export function SkillList({ onSelect }: SkillListProps) {
           <option value="">All Capabilities</option>
           {capabilities.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
+        <div className="skill-sort-controls">
+          <label htmlFor="sort-select" className="visually-hidden">Sort by</label>
+          <select
+            id="sort-select"
+            value={sort}
+            onChange={(e) => handleSortChange(e.target.value)}
+            aria-label="Sort by"
+          >
+            <option value="name">Name</option>
+            <option value="category">Category</option>
+            <option value="platform">Platform</option>
+            <option value="capability">Capability</option>
+            <option value="version">Version</option>
+            <option value="created_at">Created</option>
+            <option value="updated_at">Updated</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => setOrder(order === "asc" ? "desc" : "asc")}
+            aria-label={order === "asc" ? "Sort descending" : "Sort ascending"}
+            className="sort-order-btn"
+          >
+            {order === "asc" ? "↑" : "↓"}
+          </button>
+        </div>
       </form>
 
       {skills.length === 0 ? (

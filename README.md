@@ -257,3 +257,7 @@ docker compose exec keycloak-db psql -U keycloak keycloak < keycloak-backup.sql
 ---
 
 Alan Vo | alanvo@gmail.com | MIT License
+
+---
+
+Alan Vo · [alanvo.net](https://alanvo.net)

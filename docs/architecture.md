@@ -72,3 +72,7 @@ Axiom Foundry is a full-stack application for managing AI coding agent skills. T
 ```
 
 For production, replace the self-signed TLS termination with a managed certificate and use PostgreSQL instead of SQLite.
+
+---
+
+Alan Vo · [alanvo.net](https://alanvo.net)

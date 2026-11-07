@@ -154,3 +154,7 @@ Deletes a skill.
 | `author`      | str or null    | Author name |
 | `created_at`  | str (ISO 8601) | Creation timestamp (UTC) |
 | `updated_at`  | str (ISO 8601) | Last modification timestamp (UTC) |
+
+---
+
+Alan Vo · [alanvo.net](https://alanvo.net)

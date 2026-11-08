@@ -53,10 +53,29 @@ Tests: `backend/tests/test_platform_config.py`, `backend/tests/test_skills.py`
 
 ### continue-implementation — Continue implementation and resolve known failures
 
-Status: in_progress
+Status: done
 
 Acceptance:
 - Run checks, fix failures, and implement the next planned feature
+
+Implementation: `backend/app/main.py`, `backend/app/api/skills.py`, `backend/app/models/skill.py`, `backend/app/core/database.py`, `backend/app/services/skill_search.py`, `backend/app/services/platform_config.py`, `backend/requirements.txt`, `pyproject.toml`, `frontend/package.json`, `frontend/src/App.tsx`, `frontend/src/api/client.ts`, `frontend/src/components/SkillList.tsx`, `compose.yaml`
+
+Tests: `backend/tests/test_skills.py`, `backend/tests/test_platform_config.py`, `frontend/src/__tests__/SkillList.test.tsx`
+
+### auth-integration — Keycloak OIDC Authentication Integration
+
+Status: planned
+
+Acceptance:
+- Keycloak OIDC authentication wired into FastAPI route layer
+- Role-based access control (viewer, operator, admin)
+- Frontend login/logout flow with Keycloak
+- Protected write endpoints (create/update/delete skills)
+- SAML identity brokering configuration validated
+
+Implementation: `backend/app/core/auth.py`, `backend/app/api/skills.py`, `backend/app/main.py`, `frontend/src/auth/`, `frontend/src/App.tsx`
+
+Tests: `backend/tests/test_auth.py`, `frontend/src/__tests__/Auth.test.tsx`
 
 ---
 

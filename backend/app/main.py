@@ -13,7 +13,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Axiom Foundry",
-    description="Agent Harness Performance Optimization System",
+    description="Agent Harness Performance Optimization System with Keycloak OIDC Authentication",
     version="1.0.0",
     lifespan=lifespan,
 )

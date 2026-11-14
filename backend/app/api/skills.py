@@ -5,6 +5,7 @@ from typing import Optional, List
 from pydantic import BaseModel, Field, ConfigDict
 
 from app.core.database import get_db
+from app.core.auth import check_viewer, check_operator, check_admin
 from app.models.skill import Skill
 from app.services.skill_search import build_skill_search_query
 from app.services.platform_config import generate_platform_config, get_supported_platforms
@@ -79,26 +80,6 @@ def list_skills(
 ):
     query = db.query(Skill)
 
-    query = build_skill_search_query(query, search, category, platform, capability)
-
-    sort_column = getattr(Skill, sort, Skill.name)
-    if order == "desc":
-        query = query.order_by(sort_column.desc())
-    else:
-        query = query.order_by(sort_column.asc())
-
-    total = query.count()
-    total_pages = (total + page_size - 1) // page_size
-    items = query.offset((page - 1) * page_size).limit(page_size).all()
-
-    return SkillListResponse(
-        items=[SkillResponse.model_validate(item.to_dict()) for item in items],
-        total=total,
-        page=page,
-        page_size=page_size,
-        total_pages=total_pages,
-    )
-
 
 @router.get("/{skill_id}", response_model=SkillResponse)
 def get_skill(skill_id: int, db: Session = Depends(get_db)):
@@ -117,7 +98,8 @@ def get_skill_by_name(name: str, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=SkillResponse, status_code=201)
-def create_skill(skill: SkillCreate, db: Session = Depends(get_db)):
+def create_skill(skill: SkillCreate, db: Session = Depends(get_db), _: None = Depends(check_operator)):
+    """Create a new skill. Requires operator or admin role."""
     existing = db.query(Skill).filter(Skill.name == skill.name).first()
     if existing:
         raise HTTPException(status_code=409, detail="Skill with this name already exists")
@@ -130,7 +112,8 @@ def create_skill(skill: SkillCreate, db: Session = Depends(get_db)):
 
 
 @router.patch("/{skill_id}", response_model=SkillResponse)
-def update_skill(skill_id: int, skill: SkillUpdate, db: Session = Depends(get_db)):
+def update_skill(skill_id: int, skill: SkillUpdate, db: Session = Depends(get_db), _: None = Depends(check_operator)):
+    """Update a skill. Requires operator or admin role."""
     db_skill = db.query(Skill).filter(Skill.id == skill_id).first()
     if not db_skill:
         raise HTTPException(status_code=404, detail="Skill not found")
@@ -145,7 +128,8 @@ def update_skill(skill_id: int, skill: SkillUpdate, db: Session = Depends(get_db
 
 
 @router.delete("/{skill_id}", status_code=204)
-def delete_skill(skill_id: int, db: Session = Depends(get_db)):
+def delete_skill(skill_id: int, db: Session = Depends(get_db), _: None = Depends(check_admin)):
+    """Delete a skill. Requires admin role."""
     db_skill = db.query(Skill).filter(Skill.id == skill_id).first()
     if not db_skill:
         raise HTTPException(status_code=404, detail="Skill not found")
@@ -177,33 +161,23 @@ def get_supported_platform_configs():
 
 @router.get("/{skill_id}/platform-config/{platform}")
 def get_skill_platform_config(skill_id: int, platform: str, db: Session = Depends(get_db)):
-    """Generate platform-specific configuration for a skill.
-
-    Returns the configuration formatted for the target platform (Claude Code, Cursor, OpenCode, etc.).
-    """
-    skill = db.query(Skill).filter(Skill.id == skill_id).first()
-    if not skill:
+    """Generate platform-specific configuration for a skill."""
+    db_skill = db.query(Skill).filter(Skill.id == skill_id).first()
+    if not db_skill:
         raise HTTPException(status_code=404, detail="Skill not found")
-
-    try:
-        platform_config = generate_platform_config(platform, skill.config or {})
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
+    platform_config = generate_platform_config(skill_id, platform)
+    if not platform_config:
+        raise HTTPException(status_code=404, detail="Platform config not found for this skill")
     return JSONResponse(content=platform_config)
 
 
 @router.get("/name/{name}/platform-config/{platform}")
 def get_skill_platform_config_by_name(name: str, platform: str, db: Session = Depends(get_db)):
     """Generate platform-specific configuration for a skill by name."""
-    skill = db.query(Skill).filter(Skill.name == name).first()
-    if not skill:
+    db_skill = db.query(Skill).filter(Skill.name == name).first()
+    if not db_skill:
         raise HTTPException(status_code=404, detail="Skill not found")
-
-    try:
-        platform_config = generate_platform_config(platform, skill.config or {})
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
+    platform_config = generate_platform_config_by_name(name, platform)
+    if not platform_config:
+        raise HTTPException(status_code=404, detail="Platform config not found for this skill")
     return JSONResponse(content=platform_config)
-

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "axiom-foundry"
-version = "1.0.0"
+version = "1.6.0"
 description = "Agent Harness Performance Optimization System"
 authors = [{ name = "Alan Vo", email = "alanvo@gmail.com" }]
 license = { text = "MIT" }

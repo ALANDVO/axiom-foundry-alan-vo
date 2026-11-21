@@ -1,4 +1,5 @@
 from typing import Optional, List, Callable
+import os
 from fastapi import Request, HTTPException, Depends
 from jose import JWTError, jwt
 from pydantic import BaseModel, Field
@@ -18,6 +19,11 @@ class UserInfo(BaseModel):
     permissions: List[str] = Field(default_factory=list)
 
 
+# Development test token for testing authentication without a running Keycloak instance
+# Set DEVELOPMENT_TEST_TOKEN in .env to enable; leave empty for production mode
+DEVELOPMENT_TEST_TOKEN = os.environ.get("DEVELOPMENT_TEST_TOKEN", "")
+
+
 def _check_role(required_roles: List[str]) -> Callable:
     """Dependency factory that checks if user has required roles."""
 
@@ -27,24 +33,40 @@ def _check_role(required_roles: List[str]) -> Callable:
             raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
 
         token = auth_header[len("Bearer "):]
-        try:
-            payload = jwt.decode(
-                token,
-                options={
-                    "verify_signature": False,  # Will be True in production with real Keycloak keys
-                    "verify_aud": False,
-                    "verify_exp": True,
-                },
-            )
+
+        # Development test mode: accept a predefined test token
+        if DEVELOPMENT_TEST_TOKEN and token == DEVELOPMENT_TEST_TOKEN:
             user_info = UserInfo(
-                sub=payload.get("sub", ""),
-                preferred_username=payload.get("preferred_username", ""),
-                email=payload.get("email"),
-                roles=payload.get("realm_access", {}).get("roles", []),
-                permissions=payload.get("resource_access", {}).get("api://axiom-foundry", {}).get("roles", []),
+                sub="test-user",
+                preferred_username="testuser",
+                email=None,
+                roles=[UserRole.OPERATOR],
+                permissions=[],
             )
-        except JWTError as e:
-            raise HTTPException(status_code=401, detail=f"Invalid authentication token: {str(e)}")
+        else:
+            # Production mode: verify JWT token (signature verification disabled for now;
+            # will be enabled with real Keycloak keys in production)
+            try:
+                payload = jwt.decode(
+                    token,
+                    options={
+                        "verify_signature": False,  # Will be True in production with real Keycloak keys
+                        "verify_aud": False,
+                        "verify_exp": True,
+                    },
+                )
+                user_info = UserInfo(
+                    sub=payload.get("sub", ""),
+                    preferred_username=payload.get("preferred_username", ""),
+                    email=payload.get("email"),
+                    roles=payload.get("realm_access", {}).get("roles", []),
+                    permissions=payload.get("resource_access", {}).get("api://axiom-foundry", {}).get("roles", []),
+                )
+            except JWTError as e:
+                raise HTTPException(
+                    status_code=401,
+                    detail=f"Invalid authentication token: {str(e)}",
+                )
 
         user_roles = set(user_info.roles)
         required_set = set(required_roles)

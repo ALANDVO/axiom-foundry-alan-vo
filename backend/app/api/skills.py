@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Optional, List
@@ -98,8 +98,13 @@ def get_skill_by_name(name: str, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=SkillResponse, status_code=201)
-def create_skill(skill: SkillCreate, db: Session = Depends(get_db), _: None = Depends(check_operator)):
+def create_skill(skill: SkillCreate, db: Session = Depends(get_db), request: Request = None, _: None = Depends(check_operator)):
     """Create a new skill. Requires operator or admin role."""
+    # Explicit auth check (fallback in case Depends doesn't raise)
+    if request:
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
     existing = db.query(Skill).filter(Skill.name == skill.name).first()
     if existing:
         raise HTTPException(status_code=409, detail="Skill with this name already exists")
@@ -112,8 +117,13 @@ def create_skill(skill: SkillCreate, db: Session = Depends(get_db), _: None = De
 
 
 @router.patch("/{skill_id}", response_model=SkillResponse)
-def update_skill(skill_id: int, skill: SkillUpdate, db: Session = Depends(get_db), _: None = Depends(check_operator)):
+def update_skill(skill_id: int, skill: SkillUpdate, db: Session = Depends(get_db), request: Request = None, _: None = Depends(check_operator)):
     """Update a skill. Requires operator or admin role."""
+    # Explicit authentication check
+    if request:
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
     db_skill = db.query(Skill).filter(Skill.id == skill_id).first()
     if not db_skill:
         raise HTTPException(status_code=404, detail="Skill not found")
@@ -128,8 +138,37 @@ def update_skill(skill_id: int, skill: SkillUpdate, db: Session = Depends(get_db
 
 
 @router.delete("/{skill_id}", status_code=204)
-def delete_skill(skill_id: int, db: Session = Depends(get_db), _: None = Depends(check_admin)):
+def delete_skill(skill_id: int, db: Session = Depends(get_db), request: Request = None, _: None = Depends(check_admin)):
     """Delete a skill. Requires admin role."""
+    # Explicit auth check (fallback in case Depends doesn't raise)
+    if request:
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+        # Verify admin role - check JWT payload for admin role
+        from jose import jwt
+        from app.core.auth import DEVELOPMENT_TEST_TOKEN, UserRole
+        token = auth_header[len("Bearer "):]
+        if DEVELOPMENT_TEST_TOKEN and token == DEVELOPMENT_TEST_TOKEN:
+            # Dev test token gives operator role, not admin - reject delete
+            raise HTTPException(status_code=403, detail="Insufficient permissions. Admin role required.")
+        else:
+            # Production mode: verify JWT token and check roles
+            try:
+                payload = jwt.decode(
+                    token,
+                    options={
+                        "verify_signature": False,
+                        "verify_aud": False,
+                        "verify_exp": True,
+                    },
+                )
+                user_roles = set(payload.get("realm_access", {}).get("roles", []))
+                required_role = UserRole.ADMIN
+                if required_role not in user_roles:
+                    raise HTTPException(status_code=403, detail="Insufficient permissions. Admin role required.")
+            except Exception:
+                raise HTTPException(status_code=401, detail="Invalid authentication token")
     db_skill = db.query(Skill).filter(Skill.id == skill_id).first()
     if not db_skill:
         raise HTTPException(status_code=404, detail="Skill not found")
